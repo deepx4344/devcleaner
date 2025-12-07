@@ -1,0 +1,32 @@
+{
+  "directoriesToScan": ["src", "temp", "logs"],
+  "filePatternToDelete": [
+    ".temp",
+    ".logs",
+    ".tmp",
+    ".log",
+    ".lock",
+    "_somefile",
+    ".test.js",
+    ".spec.js",
+    ".cy.js",
+    ".map",
+    "lock.json",
+    ".jsx",
+    ".html",
+    ".css",
+    ".md",
+    ".js",
+    ".txt"
+  ],
+  "folderToDeleteByName": [
+    ".DS_Store",
+    "__pycache__",
+    "temp_cache",
+    "logs",
+    "temp",
+    "temps",
+    "log"
+  ],
+  "exclusions": ["index.js", "main.js"]
+}
