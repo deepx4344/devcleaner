@@ -12,11 +12,6 @@
     ".cy.js",
     ".map",
     "lock.json",
-    ".jsx",
-    ".html",
-    ".css",
-    ".md",
-    ".js",
     ".txt"
   ],
   "folderToDeleteByName": [
