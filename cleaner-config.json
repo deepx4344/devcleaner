@@ -1,18 +1,19 @@
 {
-  "directoriesToScan": ["src", "temp", "logs"],
   "filePatternToDelete": [
     ".temp",
-    ".logs",
     ".tmp",
     ".log",
+    ".logs",
     ".lock",
+    ".locks",
+    "**/*lock.json",
     "_somefile",
+    ".test.ts",
+    ".test",
     ".test.js",
     ".spec.js",
     ".cy.js",
-    ".map",
-    "lock.json",
-    ".txt"
+    ".map"
   ],
   "folderToDeleteByName": [
     ".DS_Store",
