@@ -1,9 +1,9 @@
 {
   "name": "devcleaner",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "A simple development cleaning script",
   "license": "ISC",
-  "author": "",
+  "author": "deepx4344",
   "type": "module",
   "main": "index.js",
   "scripts": {
