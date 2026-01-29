@@ -116,4 +116,4 @@ npm test      # or yarn test, pnpm test, bun test
 
 ## 📄 License
 
-ISC License.
+MIT License.
