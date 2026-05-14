@@ -7,23 +7,28 @@ on:
 
 jobs:
   publish:
+    runs-on: ubuntu-latest
+
     permissions:
       contents: read
-    runs-on: ubuntu-latest
+      id-token: write
     steps:
       - uses: actions/checkout@v4
-      - name: Set up Node.js
+
+      - name: Set up Nodejs
         uses: actions/setup-node@v4
         with:
           node-version: '25.2.1'
           registry-url: 'https://registry.npmjs.org'
+        
       - name: Install dependencies
         run: npm ci
+      
       - name: Run tests
         run: npm run test
+      
       - name: Build package
         run: npm run build
+      
       - name: Publish to npm
-        run: npm publish --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.devcleanernpm }}
+        run: npm publish --provenance --access public
