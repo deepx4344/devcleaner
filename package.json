@@ -5,6 +5,10 @@
   "author": "deepx4344",
   "type": "module",
   "main": "dist/cli.js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ajaka-the-wizard/devcleaner.git"
+  },
   "scripts": {
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
     "test:watch": "npx jest --watch",
