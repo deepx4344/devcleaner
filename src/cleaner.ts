@@ -1,12 +1,16 @@
 import fs from "fs/promises";
 import path from "path";
 import picomatch from "picomatch";
+import chalk from "chalk";
 import readConfigFile from "./utils/reader.js";
-import { AppConfig, CleanerOptions, ItemToDelete, ScanResult } from "./types/index.js";
+import {
+  AppConfig,
+  CleanerOptions,
+  ItemToDelete,
+  ScanResult,
+} from "./types/index.js";
 
 const currentDirectory = process.cwd();
-
-
 
 export async function initializeConfig(
   configPath: string,
@@ -18,26 +22,38 @@ export function createShouldSkipDir(
   configDetails: AppConfig | undefined,
   scanAll: boolean,
 ): (fullPath: string) => boolean {
+  const defaultSkips: string[] = [
+    "node_modules",
+    ".git",
+    ".cache",
+    "dist",
+    "build",
+    "target",
+  ];
+  const configurationFileSkips = Array.isArray(
+    configDetails?.folderExclusions,
+  )
+    ? configDetails.folderExclusions
+    : [];
+  
+  const folderPatterns = configurationFileSkips.map((p) => {
+    if (p.includes("*") || p.includes("?")) return p;
+    if (p.startsWith(".")) {
+      return `**/${p}`;
+    }
+    return `**/${p}`;
+  });
+  
+  const matchers = folderPatterns.map((g) => picomatch(g, { dot: true }));
+  
   return (fullPath: string): boolean => {
     const name = path.basename(fullPath);
-    const defaultSkips: string[] = [
-      "node_modules",
-      ".git",
-      ".cache",
-      "dist",
-      "build",
-      "target",
-    ];
-    const configurationFileSkips = Array.isArray(
-      configDetails?.folderExclusions,
-    )
-      ? configDetails.folderExclusions
-      : [];
-    const skipList: Set<string> = new Set([
-      ...defaultSkips,
-      ...configurationFileSkips,
-    ]);
-    if (!scanAll && skipList.has(name)) return true;
+    const relPath = path.relative(currentDirectory, fullPath);
+    
+    if (!scanAll && defaultSkips.includes(name)) return true;
+    
+    if (matchers.some((m) => m(relPath) || m(name))) return true;
+    
     return false;
   };
 }
@@ -59,11 +75,54 @@ export function createMatchers(
   return patternGlobs.map((g) => picomatch(g, { dot: true }));
 }
 
+export function createDirectoryMatcher(
+  configDetails: AppConfig | undefined,
+): (path: string) => boolean {
+  const folderPatterns = (
+    Array.isArray(configDetails?.folderToDeleteByName)
+      ? configDetails.folderToDeleteByName
+      : []
+  ).map((p) => {
+    if (p.includes("*") || p.includes("?")) return p;
+    return `**/${p}`;
+  });
+
+  const matchers = folderPatterns.map((g) => picomatch(g, { dot: true }));
+
+  return (path: string): boolean => {
+    return matchers.some((m) => m(path));
+  };
+}
+
+export function createFileExclusionMatcher(
+  configDetails: AppConfig | undefined,
+): (path: string) => boolean {
+  const exclusionPatterns = (
+    Array.isArray(configDetails?.fileExclusions)
+      ? configDetails.fileExclusions
+      : []
+  ).map((p) => {
+    if (p.includes("*") || p.includes("?")) return p;
+    return `**/${p}`;
+  });
+  
+  const matchers = exclusionPatterns.map((g) => picomatch(g, { dot: true }));
+  
+  return (path: string): boolean => {
+    return matchers.some((m) => m(path));
+  };
+}
+
 async function checkIfEmpty(fullPath: string): Promise<boolean> {
-  const directory = await fs.opendir(fullPath);
-  const entry = await directory.read();
-  await directory.close();
-  return entry === null;
+  try {
+    const entries = await fs.readdir(fullPath);
+    return entries.length === 0;
+  } catch (e) {
+    if (e instanceof Error && (e as NodeJS.ErrnoException).code === 'ENOENT') {
+      return true;
+    }
+    throw e;
+  }
 }
 
 async function processDirectory(
@@ -71,6 +130,8 @@ async function processDirectory(
   configDetails: AppConfig | undefined,
   shouldSkipDir: (path: string) => boolean,
   matchers: ((path: string) => boolean)[],
+  directoryMatcher: (path: string) => boolean,
+  fileExclusionMatcher: (path: string) => boolean,
   filePathsToDelete: ItemToDelete[],
   force: boolean,
   verbose: boolean,
@@ -83,7 +144,7 @@ async function processDirectory(
     entries = await fs.readdir(dir);
   } catch (e) {
     if (e instanceof Error && verbose) {
-      console.error(`Cannot read directory ${dir}:`, e.message || e);
+      console.error(chalk.red(`Cannot read directory ${dir}:`), e.message || e);
     }
     return;
   }
@@ -97,7 +158,7 @@ async function processDirectory(
       stats = await fs.stat(fullPath);
     } catch (err) {
       if (err instanceof Error && verbose) {
-        console.error(`Cannot stat ${fullPath}:`, err.message || err);
+        console.error(chalk.red(`Cannot stat ${fullPath}:`), err.message || err);
       }
       continue;
     }
@@ -106,29 +167,28 @@ async function processDirectory(
       if (shouldSkipDir(fullPath)) continue;
 
       const baseName = path.basename(fullPath);
-      const isCandidate = Array.isArray(configDetails?.folderToDeleteByName) &&
-        configDetails.folderToDeleteByName.includes(baseName);
+      const isCandidate = directoryMatcher(baseName);
 
       if (isCandidate) {
         const isEmpty = await checkIfEmpty(fullPath);
         if (isEmpty || force) {
           filePathsToDelete.push({ path: fullPath, type: "folder" });
-          if (verbose) console.log("Matched folder candidate:", fullPath);
-          continue; // Don't recurse into a folder we're deleting
+          if (verbose) console.log(chalk.magenta("Matched folder candidate:"), fullPath);
+          continue;
         }
       }
-
-      // Check if it's an empty folder anyway
       const isEmpty = await checkIfEmpty(fullPath);
       if (isEmpty) {
         filePathsToDelete.push({ path: fullPath, type: "folder" });
-        if (verbose) console.log("Matched empty folder:", fullPath);
+        if (verbose) console.log(chalk.magenta("Matched empty folder:"), fullPath);
       } else {
         await processDirectory(
           fullPath,
           configDetails,
           shouldSkipDir,
           matchers,
+          directoryMatcher,
+          fileExclusionMatcher,
           filePathsToDelete,
           force,
           verbose,
@@ -139,23 +199,19 @@ async function processDirectory(
       try {
         const rel = path.relative(currentDirectory, fullPath);
         const base = file;
-        const excluded =
-          Array.isArray(configDetails?.fileExclusions) &&
-          configDetails.fileExclusions.includes(base);
+        const excluded = fileExclusionMatcher(rel) || fileExclusionMatcher(base);
 
         if (!excluded) {
-          const matched = matchers.some(
-            (m) => m(rel) || m(base) || m(fullPath),
-          );
+          const matched = matchers.some((m) => m(rel));
           if (matched) {
             filePathsToDelete.push({ path: fullPath, type: "file" });
-            if (verbose) console.log("Matched file candidate:", fullPath);
+            if (verbose) console.log(chalk.cyan("Matched file candidate:"), fullPath);
           }
         }
       } catch (err) {
         if (err instanceof Error && verbose) {
           console.error(
-            "Pattern match error for",
+            chalk.red("Pattern match error for"),
             fullPath,
             err.message || err,
           );
@@ -177,6 +233,8 @@ export async function scanDirectories(
 
   const shouldSkipDir = createShouldSkipDir(configDetails, options.scanAll);
   const matchers = createMatchers(configDetails);
+  const directoryMatcher = createDirectoryMatcher(configDetails);
+  const fileExclusionMatcher = createFileExclusionMatcher(configDetails);
 
   const dirs = configDetails.directoriesToScan.map((d) =>
     path.isAbsolute(d) ? d : path.resolve(currentDirectory, d),
@@ -186,7 +244,7 @@ export async function scanDirectories(
     if (options.signal?.aborted) break;
 
     if (shouldSkipDir(dir)) {
-      if (options.verbose) console.log(`Skipping ${dir}`);
+      if (options.verbose) console.log(chalk.yellow(`Skipping ${dir}`));
       continue;
     }
     try {
@@ -195,6 +253,8 @@ export async function scanDirectories(
         configDetails,
         shouldSkipDir,
         matchers,
+        directoryMatcher,
+        fileExclusionMatcher,
         filePathsToDelete,
         options.force,
         options.verbose,
@@ -202,7 +262,7 @@ export async function scanDirectories(
       );
     } catch (e) {
       if (e instanceof Error && options.verbose) {
-        console.error(`Failed to process ${dir}:`, e.message || e);
+        console.error(chalk.red(`Failed to process ${dir}:`), e.message || e);
       }
     }
   }
@@ -218,20 +278,23 @@ export async function deleteFiles(
       try {
         if (file.type === "folder") {
           await fs.rm(file.path, { recursive: true, force: true });
-          if (verbose) console.log("Removed folder (recursive):", file.path);
+          if (verbose) console.log(chalk.green("Removed folder (recursive):"), file.path);
         } else {
           await fs.unlink(file.path);
-          if (verbose) console.log("Removed file:", file.path);
+          if (verbose) console.log(chalk.green("Removed file:"), file.path);
         }
       } catch (e) {
         if (e instanceof Error) {
-          if ((e as NodeJS.ErrnoException).code === "EPERM" || (e as NodeJS.ErrnoException).code === "EBUSY") {
+          if (
+            (e as NodeJS.ErrnoException).code === "EPERM" ||
+            (e as NodeJS.ErrnoException).code === "EBUSY"
+          ) {
             console.error(
-              `Access/permission denied for ${file.type} at ${file.path}`,
+              chalk.red(`Access/permission denied for ${file.type} at ${file.path}`),
             );
           } else if (verbose) {
             console.error(
-              `Failed to remove ${file.type} at ${file.path}:`,
+              chalk.red(`Failed to remove ${file.type} at ${file.path}:`),
               e.message || e,
             );
           }
@@ -240,4 +303,3 @@ export async function deleteFiles(
     }),
   );
 }
-

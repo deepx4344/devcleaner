@@ -4,12 +4,18 @@ import fs from "fs/promises";
 import readline from "readline/promises";
 import { stdin as input, stdout as output } from "process";
 import { Command } from "commander";
+import chalk from "chalk";
 import { initializeConfig, scanDirectories, deleteFiles } from "./cleaner.js";
 import { ItemToDelete, CleanerOptions } from "./types/index.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const defaultConfigPath = path.join(__dirname, "..", "config", "cleaner-config.json");
+const defaultConfigPath = path.join(
+  __dirname,
+  "..",
+  "config",
+  "cleaner-config.json",
+);
 const cwdConfigPath = path.join(process.cwd(), "cleaner-config.json");
 const abortController = new AbortController();
 
@@ -44,23 +50,32 @@ const scanAll = !!opts.scanAll;
 const verbose = !!opts.verbose;
 const configPath = opts.config || (await resolveConfigPath());
 
+function displayBanner(): void {
+  console.log("");
+  console.log(chalk.bold.cyan("╔════════════════════════════════════════════════════════════╗"));
+  console.log(chalk.bold.cyan("║"), chalk.bold.white("  DevCleaner"), chalk.gray("-"), chalk.green("Keep your dev environment clean"), chalk.bold.cyan("                ║"));
+  console.log(chalk.bold.cyan("╚════════════════════════════════════════════════════════════╝"));
+  console.log("");
+}
+
 async function promptUser(question: string): Promise<string> {
   const rl = readline.createInterface({ input, output });
-  const answer = await rl.question(question);
+  const coloredQuestion = chalk.yellow(question);
+  const answer = await rl.question(coloredQuestion);
   rl.close();
   return answer;
 }
 
 async function displayResults(items: ItemToDelete[]): Promise<void> {
-  console.log("Here are the files and folders to be deleted:");
+  console.log(chalk.bold.yellow("Here are the files and folders to be deleted:"));
   console.log("");
   items.forEach((item) => {
     const relPath = path.relative(process.cwd(), item.path);
-    const prefix = item.type === 'folder' ? '[DIR] ' : '[FILE]';
+    const prefix = item.type === "folder" ? chalk.magenta("[DIR]") : chalk.cyan("[FILE]");
     console.log(`${prefix} ${relPath}`);
   });
   console.log("");
-  console.log(`${items.length} items found`);
+  console.log(chalk.bold(`${items.length} items found`));
   console.log("");
 }
 
@@ -68,7 +83,7 @@ async function handleDeletionConfirmation(
   items: ItemToDelete[],
 ): Promise<boolean> {
   if (dryRun) {
-    console.log("Running in dry-run mode; no files will be deleted.");
+    console.log(chalk.yellow("Running in dry-run mode; no files will be deleted."));
     return false;
   }
 
@@ -82,32 +97,33 @@ async function handleDeletionConfirmation(
   if (answer && answer.toLowerCase() === "y") {
     return true;
   } else if (answer && answer.toLowerCase() === "n") {
-    console.log("Operation Canceled By User");
+    console.log(chalk.yellow("Operation Canceled By User"));
     return false;
   } else {
-    console.log("Unknown command");
+    console.log(chalk.red("Unknown command"));
     return false;
   }
 }
 
 function gracefulExit(): void {
-  console.log("Operation Canceled By User");
+  console.log(chalk.yellow("Operation Canceled By User"));
   abortController.abort();
   process.exit(0);
 }
 
 async function runClean(): Promise<void> {
   try {
-    const resolvedConfigPath = opts.config || (await resolveConfigPath());
+    displayBanner();
+    const resolvedConfigPath = configPath;
 
     if (verbose) {
-      console.log(`Using config file: ${resolvedConfigPath}`);
+      console.log(chalk.blue(`Using config file: ${resolvedConfigPath}`));
     }
 
     const config = await initializeConfig(resolvedConfigPath);
 
     if (!config) {
-      console.error("Failed to load configuration.");
+      console.error(chalk.red("Failed to load configuration."));
       process.exit(1);
     }
 
@@ -119,12 +135,12 @@ async function runClean(): Promise<void> {
       signal: abortController.signal,
     };
 
-    if (verbose) console.log("Scanning directories...");
+    if (verbose) console.log(chalk.blue("Scanning directories..."));
 
     const { filesToDelete } = await scanDirectories(config, cleanerOptions);
 
     if (filesToDelete.length === 0) {
-      console.log("No files found.");
+      console.log(chalk.green("No files found."));
       process.exit(0);
     }
 
@@ -134,19 +150,19 @@ async function runClean(): Promise<void> {
 
     if (shouldDelete) {
       await deleteFiles(filesToDelete, verbose);
-      console.log("All temp files deleted successfully");
+      console.log(chalk.green.bold("All temp files deleted successfully"));
     }
 
     process.exit(0);
   } catch (e) {
     if (e instanceof Error) {
       if (e.name === "AbortError") {
-        console.log("Operation Canceled By User");
+        console.log(chalk.yellow("Operation Canceled By User"));
       } else {
-        console.error("An unexpected error occurred:", e.message);
+        console.error(chalk.red("An unexpected error occurred:"), e.message);
       }
     } else {
-      console.error("An unexpected error occurred:", e);
+      console.error(chalk.red("An unexpected error occurred:"), e);
     }
     process.exit(1);
   }

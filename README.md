@@ -1,19 +1,19 @@
-# DevCleaner 🧹
+# DevCleaner
 
 > A powerful, type-safe CLI tool to keep your development environment clean by removing temporary files, logs, caches, and empty directories.
 
 **DevCleaner** helps you reclaim disk space and maintain a tidy codebase by intelligently scanning and deleting unwanted artifacts. Migrated to **TypeScript**, it provides robust safety guards, a dry-run mode, and flexible configuration options.
 
-## 🚀 Key Features
+## Key Features
 
-*   **🛡️ Safety First**: Defaults to **Dry-Run** mode. You must explicitly use `--force` to delete.
-*   **🏗️ TypeScript Powered**: Fully typed logic for better reliability and performance.
-*   **⚙️ Configurable**: Define custom patterns for files and folders via `cleaner-config.json`.
-*   **🧠 Smart Exclusions**: Automatically protects critical directories like `node_modules`, `.git`, and `dist`.
-*   **⚡ ESM Native**: Built using modern Node.js ECMAScript Modules.
-*   **💬 Interactive Confirmation**: Prompts you before deletion (unless `-y` is used).
+*   **Safety First**: Defaults to **Dry-Run** mode. You must explicitly use `--force` to delete.
+*   **TypeScript Powered**: Fully typed logic for better reliability and performance.
+*   **Configurable**: Define custom patterns for files and folders via `cleaner-config.json`.
+*   **Smart Exclusions**: Automatically protects critical directories like `node_modules`, `.git`, and `dist`.
+*   **ESM Native**: Built using modern Node.js ECMAScript Modules.
+*   **Interactive Confirmation**: Prompts you before deletion (unless `-y` is used).
 
-## 📦 Installation
+## Installation
 
 ```bash
 # Run directly without installation
@@ -30,7 +30,7 @@ pnpm add -g devcleaner
 bun add -g devcleaner
 ```
 
-## 🛠 Usage
+## Usage
 
 ### Basic Usage (Dry Run)
 By default, `DevCleaner` lists what *would* be deleted. It will **not** touch your files yet.
@@ -74,7 +74,7 @@ clean --force --yes
 
 ---
 
-## 🔧 Configuration
+## Configuration
 
 Create a `cleaner-config.json` in your project root to customize scanning behavior.
 
@@ -99,7 +99,7 @@ Create a `cleaner-config.json` in your project root to customize scanning behavi
 }
 ```
 
-## 🛠 Development
+## Development
 
 DevCleaner is built with TypeScript and Jest.
 
@@ -114,6 +114,6 @@ npm run build # or yarn build, pnpm build, bun run build
 npm test      # or yarn test, pnpm test, bun test
 ```
 
-## 📄 License
+## License
 
 MIT License.
