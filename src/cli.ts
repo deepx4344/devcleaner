@@ -50,9 +50,18 @@ const scanAll = !!opts.scanAll;
 const verbose = !!opts.verbose;
 const configPath = opts.config || (await resolveConfigPath());
 
+function displayBanner(): void {
+  console.log("");
+  console.log(chalk.bold.cyan("╔════════════════════════════════════════════════════════════╗"));
+  console.log(chalk.bold.cyan("║"), chalk.bold.white("  DevCleaner"), chalk.gray("-"), chalk.green("Keep your dev environment clean"), chalk.bold.cyan("                ║"));
+  console.log(chalk.bold.cyan("╚════════════════════════════════════════════════════════════╝"));
+  console.log("");
+}
+
 async function promptUser(question: string): Promise<string> {
   const rl = readline.createInterface({ input, output });
-  const answer = await rl.question(question);
+  const coloredQuestion = chalk.yellow(question);
+  const answer = await rl.question(coloredQuestion);
   rl.close();
   return answer;
 }
@@ -104,6 +113,7 @@ function gracefulExit(): void {
 
 async function runClean(): Promise<void> {
   try {
+    displayBanner();
     const resolvedConfigPath = configPath;
 
     if (verbose) {

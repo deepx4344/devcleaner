@@ -22,26 +22,38 @@ export function createShouldSkipDir(
   configDetails: AppConfig | undefined,
   scanAll: boolean,
 ): (fullPath: string) => boolean {
+  const defaultSkips: string[] = [
+    "node_modules",
+    ".git",
+    ".cache",
+    "dist",
+    "build",
+    "target",
+  ];
+  const configurationFileSkips = Array.isArray(
+    configDetails?.folderExclusions,
+  )
+    ? configDetails.folderExclusions
+    : [];
+  
+  const folderPatterns = configurationFileSkips.map((p) => {
+    if (p.includes("*") || p.includes("?")) return p;
+    if (p.startsWith(".")) {
+      return `**/*${p}`;
+    }
+    return `**/${p}`;
+  });
+  
+  const matchers = folderPatterns.map((g) => picomatch(g, { dot: true }));
+  
   return (fullPath: string): boolean => {
     const name = path.basename(fullPath);
-    const defaultSkips: string[] = [
-      "node_modules",
-      ".git",
-      ".cache",
-      "dist",
-      "build",
-      "target",
-    ];
-    const configurationFileSkips = Array.isArray(
-      configDetails?.folderExclusions,
-    )
-      ? configDetails.folderExclusions
-      : [];
-    const skipList: Set<string> = new Set([
-      ...defaultSkips,
-      ...configurationFileSkips,
-    ]);
-    if (!scanAll && skipList.has(name)) return true;
+    const relPath = path.relative(currentDirectory, fullPath);
+    
+    if (!scanAll && defaultSkips.includes(name)) return true;
+    
+    if (matchers.some((m) => m(relPath) || m(name))) return true;
+    
     return false;
   };
 }
@@ -82,6 +94,28 @@ export function createDirectoryMatcher(
   };
 }
 
+export function createFileExclusionMatcher(
+  configDetails: AppConfig | undefined,
+): (path: string) => boolean {
+  const exclusionPatterns = (
+    Array.isArray(configDetails?.fileExclusions)
+      ? configDetails.fileExclusions
+      : []
+  ).map((p) => {
+    if (p.includes("*") || p.includes("?")) return p;
+    if (p.startsWith(".")) {
+      return `**/*${p}`;
+    }
+    return `**/${p}`;
+  });
+  
+  const matchers = exclusionPatterns.map((g) => picomatch(g, { dot: true }));
+  
+  return (path: string): boolean => {
+    return matchers.some((m) => m(path));
+  };
+}
+
 async function checkIfEmpty(fullPath: string): Promise<boolean> {
   try {
     const entries = await fs.readdir(fullPath);
@@ -100,6 +134,7 @@ async function processDirectory(
   shouldSkipDir: (path: string) => boolean,
   matchers: ((path: string) => boolean)[],
   directoryMatcher: (path: string) => boolean,
+  fileExclusionMatcher: (path: string) => boolean,
   filePathsToDelete: ItemToDelete[],
   force: boolean,
   verbose: boolean,
@@ -142,11 +177,9 @@ async function processDirectory(
         if (isEmpty || force) {
           filePathsToDelete.push({ path: fullPath, type: "folder" });
           if (verbose) console.log(chalk.magenta("Matched folder candidate:"), fullPath);
-          continue; // Don't recurse into a folder we're deleting
+          continue;
         }
       }
-
-      // Check if it's an empty folder anyway
       const isEmpty = await checkIfEmpty(fullPath);
       if (isEmpty) {
         filePathsToDelete.push({ path: fullPath, type: "folder" });
@@ -158,6 +191,7 @@ async function processDirectory(
           shouldSkipDir,
           matchers,
           directoryMatcher,
+          fileExclusionMatcher,
           filePathsToDelete,
           force,
           verbose,
@@ -168,9 +202,7 @@ async function processDirectory(
       try {
         const rel = path.relative(currentDirectory, fullPath);
         const base = file;
-        const excluded =
-          Array.isArray(configDetails?.fileExclusions) &&
-          configDetails.fileExclusions.includes(base);
+        const excluded = fileExclusionMatcher(rel) || fileExclusionMatcher(base);
 
         if (!excluded) {
           const matched = matchers.some((m) => m(rel));
@@ -205,6 +237,7 @@ export async function scanDirectories(
   const shouldSkipDir = createShouldSkipDir(configDetails, options.scanAll);
   const matchers = createMatchers(configDetails);
   const directoryMatcher = createDirectoryMatcher(configDetails);
+  const fileExclusionMatcher = createFileExclusionMatcher(configDetails);
 
   const dirs = configDetails.directoriesToScan.map((d) =>
     path.isAbsolute(d) ? d : path.resolve(currentDirectory, d),
@@ -224,6 +257,7 @@ export async function scanDirectories(
         shouldSkipDir,
         matchers,
         directoryMatcher,
+        fileExclusionMatcher,
         filePathsToDelete,
         options.force,
         options.verbose,
