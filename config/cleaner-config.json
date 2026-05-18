@@ -10,12 +10,7 @@
     "**/npm-debug.log*",
     "**/yarn-debug.log*",
     "**/yarn-error.log*",
-    "**/*lock.json",
-    "**/*.test.ts",
-    "**/*.test.js",
-    "**/*.spec.js",
-    "**/*.cy.js",
-    "**/*.map"
+    "**/*lock.json"
   ],
   "folderToDeleteByName": [
     ".DS_Store",
@@ -26,6 +21,12 @@
     "temps",
     "log"
   ],
-  "fileExclusions": ["index.js", "main.js", "package.json", "package-lock.json", "tsconfig.json"],
+  "fileExclusions": [
+    "index.js",
+    "main.js",
+    "package.json",
+    "package-lock.json",
+    "tsconfig.json"
+  ],
   "folderExclusions": ["node_modules", ".git", "dist", "build", ".github"]
 }
