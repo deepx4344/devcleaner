@@ -39,7 +39,7 @@ export function createShouldSkipDir(
   const folderPatterns = configurationFileSkips.map((p) => {
     if (p.includes("*") || p.includes("?")) return p;
     if (p.startsWith(".")) {
-      return `**/*${p}`;
+      return `**/${p}`;
     }
     return `**/${p}`;
   });
@@ -103,9 +103,6 @@ export function createFileExclusionMatcher(
       : []
   ).map((p) => {
     if (p.includes("*") || p.includes("?")) return p;
-    if (p.startsWith(".")) {
-      return `**/*${p}`;
-    }
     return `**/${p}`;
   });
   
